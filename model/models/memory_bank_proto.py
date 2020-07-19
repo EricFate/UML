@@ -80,37 +80,40 @@ class MemoryBankProto(ProtoNet):
         # get mean of the support
         raw_proto = support.mean(dim=1)  # Ntask x NK x d
         d_s = self.support_queue[:self.count * self.stride]
-        dummy = d_s.expand(raw_proto.size(0), *d_s.shape)
-        proto = torch.cat([raw_proto, dummy], dim=1)
+        dummy_proto = d_s.expand(raw_proto.size(0), *d_s.shape)
+        # proto = torch.cat([raw_proto, dummy], dim=1)
 
-        num_query = np.prod(query_idx.shape[-2:])
+        # num_query = np.prod(query_idx.shape[-2:])
         # query: (num_batch, num_query, num_proto, num_emb)
         # proto: (num_batch, num_proto, num_emb)
         if self.args.use_euclidean:
-            logits = self.euclidean(emb_dim, num_query, proto, query)
+            logits = self.euclidean(emb_dim, raw_proto, query)
+            logits_dummy = self.euclidean(emb_dim, dummy_proto, query, self.args.max_pool)
         else:  # cosine similarity: more memory efficient
-            logits = self.cosine(emb_dim, proto, query)
+            logits = self.cosine(emb_dim, raw_proto, query)
+            logits_dummy = self.cosine(emb_dim, dummy_proto, query, self.args.max_pool)
+
+        logits = torch.cat((logits, logits_dummy),dim=1)
 
         # --------------- for dummy query --------------
-        if self.Q > 0:
-            dummy_choose = np.random.choice(self.count * self.stride, self.args.batch_size, replace=False)
-            dummy_query = self.query_queue[dummy_choose]
-            dummy_query_emb = self.encoder(dummy_query)
-            dummy_index = self.idx_queue[dummy_choose]
-            q_idx = np.stack([np.random.choice(self.args.batch_size, self.Q) for _ in range(self.args.num_tasks)])
-            d_q = dummy_query_emb[q_idx]
-            d_i = dummy_index[q_idx] + self.args.way
-            if self.args.use_euclidean:
-                dummy_logit = self.euclidean(emb_dim, self.Q, proto, d_q)
-            else:
-                dummy_logit = self.cosine(emb_dim, proto, d_q)
-            dummy_label = d_i.view(-1)
-            dummy_loss = F.cross_entropy(dummy_logit, dummy_label)
-        else:
-            dummy_loss = None
-            # -----------------------------------------------
-        return logits, dummy_loss
-
+        # if self.Q > 0:
+        #     dummy_choose = np.random.choice(self.count * self.stride, self.args.batch_size, replace=False)
+        #     dummy_query = self.query_queue[dummy_choose]
+        #     dummy_query_emb = self.encoder(dummy_query)
+        #     dummy_index = self.idx_queue[dummy_choose]
+        #     q_idx = np.stack([np.random.choice(self.args.batch_size, self.Q) for _ in range(self.args.num_tasks)])
+        #     d_q = dummy_query_emb[q_idx]
+        #     d_i = dummy_index[q_idx] + self.args.way
+        #     if self.args.use_euclidean:
+        #         dummy_logit = self.euclidean(emb_dim, proto, d_q)
+        #     else:
+        #         dummy_logit = self.cosine(emb_dim, proto, d_q)
+        #     dummy_label = d_i.view(-1)
+        #     dummy_loss = F.cross_entropy(dummy_logit, dummy_label)
+        # else:
+        #     dummy_loss = None
+        # -----------------------------------------------
+        return logits, None
 
     @torch.no_grad()
     # @profile

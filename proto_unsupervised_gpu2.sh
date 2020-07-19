@@ -262,6 +262,12 @@
   --backbone_class ConvNet --dataset MiniImageNet --num_classes 16 --way 5 --shot 1 --query 5 --eval_query 15 \
   --balance 1.0 --temperature 1 --temperature2 1 --lr 0.002 --lr_mul 1 --lr_scheduler cosine --step_size 20 \
   --gamma 0.5 --gpu 15 --episodes_per_epoch 500 --eval_interval 2
+# taco(SIM) memory bank proto (max_pool)
+/home/yangy/anaconda3/envs/ptg/bin/python train_fsl.py --eval_all --unsupervised --batch_size 64 \
+  --augment 'AMDIM' --num_tasks 256 --max_epoch 100 --model_class MemoryBankProto \
+  --backbone_class ConvNet --dataset MiniImageNet --num_classes 16 --way 5 --shot 1 --query 5 --eval_query 15 \
+  --balance 1.0 --temperature 1 --temperature2 1 --lr 0.002 --lr_mul 1 --lr_scheduler cosine --step_size 20 \
+  --gamma 0.5 --gpu 0 --episodes_per_epoch 500 --eval_interval 2 --max_pool
 # taco(SIM) memory bank proto （K=256）
 /home/yangy/anaconda3/envs/ptg/bin/python train_fsl.py --eval_all --unsupervised --batch_size 64 \
   --augment 'AMDIM' --num_tasks 256 --max_epoch 100 --model_class MemoryBankProto \

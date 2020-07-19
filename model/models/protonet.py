@@ -28,8 +28,7 @@ class ProtoNet(FewShotModel):
         else:
             return logits
 
-
-    def cosine(self, emb_dim, proto, query):
+    def cosine(self, emb_dim, proto, query, max_pool=False):
         num_batch = proto.shape[0]
         num_proto = proto.shape[1]
         proto = F.normalize(proto, dim=-1)  # normalize for cosine distance
@@ -38,9 +37,11 @@ class ProtoNet(FewShotModel):
         logits = torch.bmm(query, proto.permute([0, 2, 1])) / self.args.temperature
         # logits = torch.einsum('ijk,ilmk->ilmj', proto, query)
         logits = logits.reshape(-1, num_proto)
+        if max_pool:
+            logits = torch.max(logits, dim=-1, keepdim=True)[0]
         return logits
 
-    def euclidean(self, emb_dim, proto, query):
+    def euclidean(self, emb_dim, proto, query, max_pool=False):
         num_query = np.prod(query.shape[1:3])
         num_batch = proto.shape[0]
         num_proto = proto.shape[1]
@@ -48,5 +49,6 @@ class ProtoNet(FewShotModel):
         proto = proto.unsqueeze(1).expand(num_batch, num_query, num_proto, emb_dim)
         proto = proto.contiguous().view(num_batch * num_query, num_proto, emb_dim)  # (Nbatch x Nq, Nk, d)
         logits = - torch.sum((proto - query) ** 2, 2) / self.args.temperature
+        if max_pool:
+            logits = torch.max(logits, dim=-1, keepdim=True)[0]
         return logits
-
