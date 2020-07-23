@@ -16,11 +16,14 @@ class MemoryBankProto(ProtoNet):
         super().__init__(args)
         self.stride = args.batch_size
         self.encoder_q = self.encoder
-        self.encoder_k = copy.deepcopy(self.encoder_q)
+        if args.split:
+            self.encoder_k = copy.deepcopy(self.encoder_q)
+            for p in self.encoder_k.parameters():
+                p.requires_grad = False
+        else:
+            self.encoder_k = self.encoder
         self.writer = get_summary_writer()
 
-        for p in self.encoder_k.parameters():
-            p.requires_grad = False
         self.m = args.m
         self.K = args.K
         self.Q = int(args.way * args.bank_ratio)
@@ -42,9 +45,13 @@ class MemoryBankProto(ProtoNet):
             # feature extraction
             x = x.squeeze(0)
             instance_embs_q = self.encoder_q(x)
-            with torch.no_grad():
-                self._momentum_update_key_encoder()
+            if self.args.split:
+                with torch.no_grad():
+                    self._momentum_update_key_encoder()
+                    instance_embs_k = self.encoder_k(x)
+            else:
                 instance_embs_k = self.encoder_k(x)
+
 
             # num_inst = instance_embs.shape[0]
             # split support query set for few-shot data
@@ -93,7 +100,8 @@ class MemoryBankProto(ProtoNet):
             logits = self.cosine(emb_dim, raw_proto, query)
             logits_dummy = self.cosine(emb_dim, dummy_proto, query, self.args.max_pool)
 
-        logits = torch.cat((logits, logits_dummy),dim=1)
+        if self.ep >= self.args.start:
+            logits = torch.cat((logits, logits_dummy), dim=1)
 
         # --------------- for dummy query --------------
         # if self.Q > 0:
@@ -127,7 +135,10 @@ class MemoryBankProto(ProtoNet):
             # self.writer.add_histogram('encoder_q/%s' % name_q, param_q.clone().cpu().data.numpy(), self.gep)
             # self.writer.add_histogram('encoder_k/%s' % name_k, param_k.clone().cpu().data.numpy(), self.gep)
             diff += torch.sum(torch.abs(param_k.data - param_q.data))
-            param_k.data = param_k.data * self.m + param_q.data * (1. - self.m)
+            if self.ep < self.args.start:
+                param_k.data = param_q.data
+            else:
+                param_k.data = param_k.data * self.m + param_q.data * (1. - self.m)
         diff = diff.item()
         self.writer.add_scalar('difference', diff, self.ep)
         self.writer.add_scalar('difference/epoch%s' % self.gep, diff, self.lep)

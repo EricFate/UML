@@ -174,7 +174,7 @@ def postprocess_args(args):
         save_path2 = 'nd_%d_sp_%d' % (args.dummy_nodes, args.dummy_samples) + save_path2
 
     if args.model_class == 'MemoryBankProto':
-        save_path2 = 'K%d_frac%.4f_m%.4f_p_%s' % (args.K, args.bank_ratio, args.m, args.max_pool) + save_path2
+        save_path2 = 'K%d_frac%.4f_m%.4f_p_%s_s_%d_sp_%s_' % (args.K, args.bank_ratio, args.m, args.max_pool,args.start,args.split) + save_path2
 
     if not os.path.exists(os.path.join(args.save_dir, save_path1)):
         os.mkdir(os.path.join(args.save_dir, save_path1))
@@ -225,10 +225,12 @@ def get_command_line_parser():
     parser.add_argument('--rand', action='store_true', default=False)
 
     # param for memory bank
-    parser.add_argument('--K', type=int, default=128)
+    parser.add_argument('--K', type=int, default=10)
     parser.add_argument('--bank_ratio', type=float, default=0.)
     parser.add_argument('--m', type=float, default=0.999)
     parser.add_argument('--max_pool', action='store_true', default=False)
+    parser.add_argument('--start', type=int, default=0)
+    parser.add_argument('--split', action='store_true', default=False)
 
     # param for projection head
     parser.add_argument('--hidden_ratio', type=float, default=1.)
