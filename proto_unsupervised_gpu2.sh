@@ -145,6 +145,30 @@
   --lr_mul 1 --lr_scheduler cosine --step_size 20 --gamma 0.5 --gpu 15 --episodes_per_epoch 500 \
   --eval_interval 2 --alpha 0.2 --layer 4 --rand
 
+# taco + task mixup (layer 2 alpha 0.5)
+/home/yangy/anaconda3/envs/ptg/bin/python train_fsl.py --eval_all --unsupervised --batch_size 64 \
+  --augment 'AMDIM' --num_tasks 64 --max_epoch 100 --model_class ProtoNet --additional MixUp \
+  --backbone_class ConvNet --dataset MiniImageNet --num_classes 16 --way 5 --eval_way 5 --shot 1 \
+  --eval_shot 1 --query 5 --eval_query 15 --temperature 1 --temperature2 1 --lr 0.002 \
+  --lr_mul 1 --lr_scheduler cosine --step_size 20 --gamma 0.5 --gpu 1 --episodes_per_epoch 500 \
+  --eval_interval 2 --alpha 0.5 --layer 2
+
+  # taco + task mixup (layer 2 alpha 2)
+/home/yangy/anaconda3/envs/ptg/bin/python train_fsl.py --eval_all --unsupervised --batch_size 64 \
+  --augment 'AMDIM' --num_tasks 64 --max_epoch 100 --model_class ProtoNet --additional MixUp \
+  --backbone_class ConvNet --dataset MiniImageNet --num_classes 16 --way 5 --eval_way 5 --shot 1 \
+  --eval_shot 1 --query 5 --eval_query 15 --temperature 1 --temperature2 1 --lr 0.002 \
+  --lr_mul 1 --lr_scheduler cosine --step_size 20 --gamma 0.5 --gpu 3 --episodes_per_epoch 500 \
+  --eval_interval 2 --alpha 2 --layer 2
+
+  # taco + task mixup (layer 2 alpha 5)
+/home/yangy/anaconda3/envs/ptg/bin/python train_fsl.py --eval_all --unsupervised --batch_size 64 \
+  --augment 'AMDIM' --num_tasks 64 --max_epoch 100 --model_class ProtoNet --additional MixUp \
+  --backbone_class ConvNet --dataset MiniImageNet --num_classes 16 --way 5 --eval_way 5 --shot 1 \
+  --eval_shot 1 --query 5 --eval_query 15 --temperature 1 --temperature2 1 --lr 0.002 \
+  --lr_mul 1 --lr_scheduler cosine --step_size 20 --gamma 0.5 --gpu 10 --episodes_per_epoch 500 \
+  --eval_interval 2 --alpha 5 --layer 2
+
 
 
 # taco + task mixup
@@ -278,6 +302,12 @@
 # taco(SIM) memory bank proto (start = 50)
 /home/yangy/anaconda3/envs/ptg/bin/python train_fsl.py --eval_all --unsupervised --batch_size 64 \
   --augment 'AMDIM' --num_tasks 256 --max_epoch 100 --model_class MemoryBankProto \
+  --backbone_class ConvNet --dataset MiniImageNet --num_classes 16 --way 5 --shot 1 --query 5 --eval_query 15 \
+  --balance 1.0 --temperature 1 --temperature2 1 --lr 0.002 --lr_mul 1 --lr_scheduler cosine --step_size 20 \
+  --gamma 0.5 --gpu 6 --episodes_per_epoch 500 --eval_interval 2 --start 50
+# taco(SIM) memory bank proto (start = 50)
+/home/yangy/anaconda3/envs/ptg/bin/python train_fsl.py --eval_all --unsupervised --batch_size 5 \
+  --augment 'AMDIM' --num_tasks 1 --max_epoch 100 --model_class MemoryBankProto \
   --backbone_class ConvNet --dataset MiniImageNet --num_classes 16 --way 5 --shot 1 --query 5 --eval_query 15 \
   --balance 1.0 --temperature 1 --temperature2 1 --lr 0.002 --lr_mul 1 --lr_scheduler cosine --step_size 20 \
   --gamma 0.5 --gpu 6 --episodes_per_epoch 500 --eval_interval 2 --start 50
@@ -562,6 +592,12 @@ python train_fsl.py --eval_all --unsupervised --batch_size 64 \
   --dataset MiniImageNet --eval_dataset CUB --num_classes 16 --way 5 --eval_way 5 --shot 1 --eval_shot 1 --query 5 --eval_query 15 \
   --balance 0 --temperature 1 --temperature2 1 --lr 0.001 --lr_mul 1 --lr_scheduler cosine --step_size 20 --gamma 0.5 \
   --gpu 14 --episodes_per_epoch 500 --eval_interval 2
+# supervised from scratch 256 task finetune (sim)
+/home/yangy/anaconda3/envs/ptg/bin/python train_fsl.py --eval_all \
+  --augment 'AMDIM' --num_tasks 256 --max_epoch 100 --model_class ProtoNet --backbone_class ConvNet \
+  --dataset MiniImageNet --num_classes 16 --way 5 --eval_way 5 --shot 1 --eval_shot 1 --query 5 --eval_query 15 \
+  --balance 0 --temperature 1 --temperature2 1 --lr 0.002 --lr_mul 1 --lr_scheduler cosine --step_size 20 \
+  --gamma 0.5 --gpu 12 --episodes_per_epoch 500 --eval_interval 2 --finetune
 
 # unsupervised init 512 task
 /home/yangy/anaconda3/envs/ptg/bin/python train_fsl.py --eval_all --init_weights ./checkpoints/best/ucon_pre.pth --augment 'AMDIM' --num_tasks 512 --max_epoch 100 --model_class MatchNet --use_euclidean --backbone_class ConvNet --dataset MiniImageNet --num_classes 16 --way 5 --eval_way 5 --shot 1 --eval_shot 1 --query 5 --eval_query 15 --balance 0 --temperature 1 --temperature2 1 --lr 0.0001 --lr_mul 1 --lr_scheduler cosine --step_size 20 --gamma 0.5 --gpu 15 --episodes_per_epoch 500 --eval_interval 2

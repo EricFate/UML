@@ -58,8 +58,6 @@ def examplar_collate(batch):
     return img, label
 
 
-
-
 def get_dataloader(args):
     num_device = torch.cuda.device_count()
     num_episodes = args.episodes_per_epoch * num_device if args.multi_gpu else args.episodes_per_epoch
@@ -86,7 +84,11 @@ def get_dataloader(args):
         train_loader = DataLoader(dataset=dataset, batch_size=1, shuffle=True, num_workers=0,
                                   pin_memory=True)
     else:
-        trainset = get_dataset(args.dataset, 'train', args.unsupervised, args, augment=args.augment)
+        if args.finetune:
+            split = 'train_%d' % args.samples_per_class
+        else:
+            split = 'train'
+        trainset = get_dataset(args.dataset, split, args.unsupervised, args, augment=args.augment)
         if args.unsupervised:
             train_loader = DataLoader(dataset=trainset, batch_size=args.batch_size, shuffle=True, num_workers=0,
                                       collate_fn=examplar_collate,
@@ -139,7 +141,8 @@ def prepare_model(args):
         model_dict = model.state_dict()
         if args.augment == 'moco':
             pretrained_dict = torch.load(args.init_weights)['state_dict']
-            pretrained_dict = {'encoder'+k[len('encoder_q'):]: v for k, v in pretrained_dict.items() if k.startswith('encoder_q')}
+            pretrained_dict = {'encoder' + k[len('encoder_q'):]: v for k, v in pretrained_dict.items() if
+                               k.startswith('encoder_q')}
         else:
             pretrained_dict = torch.load(args.init_weights)['params']
             # if args.backbone_class == 'ConvNet':

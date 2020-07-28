@@ -17,7 +17,7 @@ class MixUpWrapper(FewShotModelWrapper):
 
         support_idx, query_idx = self.split_instances(x)
         alpha = self.args.alpha
-        c = np.random.beta(alpha, alpha)
+        c = torch.from_numpy(np.random.beta(alpha, alpha, self.args.num_tasks)).view(-1,1,1,1,1).to(self.args.device)
         # c = 1.
         perm = torch.randperm(support_idx.size(0)).to(self.args.device)
         # mixed_x : (num_task,num_shot,num_way) + shape of image

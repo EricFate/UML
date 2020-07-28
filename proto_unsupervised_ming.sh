@@ -122,6 +122,40 @@
   --lr_mul 1 --lr_scheduler cosine --step_size 20 --gamma 0.5 --gpu 15 --episodes_per_epoch 500 \
   --eval_interval 2 --alpha 0.2 --layer 4 --rand
 
+
+# unsupervised init 256 task finetune (sim)
+/home/amax/anaconda3/envs/ming/bin/python train_fsl.py --eval_all --init_weights './checkpoints/best/ucon_pre_sim_proto.pth' \
+  --augment 'AMDIM' --num_tasks 256 --max_epoch 100 --model_class ProtoNet --backbone_class ConvNet \
+  --dataset MiniImageNet --num_classes 16 --way 5 --eval_way 5 --shot 1 --eval_shot 1 --query 5 --eval_query 15 \
+  --balance 0 --temperature 1 --temperature2 1 --lr 0.0001 --lr_mul 1 --lr_scheduler cosine --step_size 20 \
+  --gamma 0.5 --gpu 1 --episodes_per_epoch 500 --eval_interval 2 --finetune
+# unsupervised pretrain 256 task finetune (sim)
+/home/amax/anaconda3/envs/ming/bin/python train_fsl.py --eval_all --init_weights './checkpoints/best/ucon_pre_sim_proto.pth' \
+  --augment 'AMDIM' --num_tasks 256 --max_epoch 100 --model_class ProtoNet --backbone_class ConvNet \
+  --dataset MiniImageNet --num_classes 16 --way 5 --eval_way 5 --shot 1 --eval_shot 1 --query 5 --eval_query 15 \
+  --balance 0 --temperature 1 --temperature2 1 --lr 0.002 --lr_mul 1 --lr_scheduler cosine --step_size 20 \
+  --gamma 0.5 --gpu 0 --episodes_per_epoch 500 --eval_interval 2 --finetune
+# supervised from scratch 256 task finetune (sim)
+/home/amax/anaconda3/envs/ming/bin/python train_fsl.py --eval_all \
+  --augment 'AMDIM' --num_tasks 256 --max_epoch 100 --model_class ProtoNet --backbone_class ConvNet \
+  --dataset MiniImageNet --num_classes 16 --way 5 --eval_way 5 --shot 1 --eval_shot 1 --query 5 --eval_query 15 \
+  --balance 0 --temperature 1 --temperature2 1 --lr 0.002 --lr_mul 1 --lr_scheduler cosine --step_size 20 \
+  --gamma 0.5 --gpu 0 --episodes_per_epoch 500 --eval_interval 2 --finetune
+
+# eval last unsupervised pretrain 256 task finetune (sim)
+/home/amax/anaconda3/envs/ming/bin/python eval_fsl.py \
+  --path './checkpoints/MiniImageNet-MiniImageNet,CUB-ProtoNet-ConvNet-05w01s05q-none-Pre_ucon_pre_sim_proto-SIM/20_0.5_lr0.0001mul1_cosine_T11.0T21.0_b0.0_bsz096_batch032_ntask256_nclass016_ep100_evalFalse-Aug_AMDIM/epoch-last.pth' \
+  --eval_all --model_class ProtoNet --backbone_class ConvNet --dataset MiniImageNet \
+  --num_classes 16 --eval_way 5 --eval_shot 1 --eval_query 15 --gpu 0
+
+
+# eval last unsupervised pretrain 256 task finetune (sim)
+/home/amax/anaconda3/envs/ming/bin/python eval_fsl.py \
+  --path './checkpoints/MiniImageNet-MiniImageNet,CUB-ProtoNet-ConvNet-05w01s05q-none-Pre_ucon_pre_sim_proto-SIM/20_0.5_lr0.002mul1_cosine_T11.0T21.0_b0.0_bsz096_batch032_ntask256_nclass016_ep100_evalFalse-Aug_AMDIM/epoch-last.pth' \
+  --eval_all --model_class ProtoNet --backbone_class ConvNet --dataset MiniImageNet \
+  --num_classes 16 --eval_way 5 --eval_shot 1 --eval_query 15 --gpu 1
+
+
 /home/amax/anaconda3/envs/ming/bin/python eval_fsl.py --eval_all --path checkpoint_0199.pth.tar \
 --augment moco --model_class ProtoNet --backbone_class ConvNet --num_classes 16 --way 5 \
 --eval_way 5 --shot 1 --eval_shot 1 --query 5 --eval_query 15 --gpu 1
