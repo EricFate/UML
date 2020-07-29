@@ -165,7 +165,7 @@ def prepare_model(args):
         para_model = model.to(device)
     else:
         para_model = model.to(device)
-    print(model.state_dict().keys())
+    # print(model.state_dict().keys())
     return model, para_model
 
 

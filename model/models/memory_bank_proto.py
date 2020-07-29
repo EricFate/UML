@@ -52,7 +52,6 @@ class MemoryBankProto(ProtoNet):
             else:
                 instance_embs_k = self.encoder_k(x)
 
-
             # num_inst = instance_embs.shape[0]
             # split support query set for few-shot data
             support_idx, query_idx = self.split_instances(x)
@@ -169,7 +168,9 @@ class MemoryBankProto(ProtoNet):
             self.count += 1
 
     def load_state_dict(self, state_dict, strict=True):
-        self.encoder.load_state_dict(state_dict, strict)
+        super(MemoryBankProto, self).load_state_dict(state_dict, strict=False)
 
     def state_dict(self, destination=None, prefix='', keep_vars=False):
-        return self.encoder.state_dict(destination, prefix, keep_vars)
+        super_dict = super(MemoryBankProto, self).state_dict()
+        state_dict = dict((key, value) for key, value in super_dict.items() if key.startswith('encoder.'))
+        return state_dict

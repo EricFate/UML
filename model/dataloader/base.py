@@ -78,7 +78,10 @@ class BaseDataset(Dataset):
 
         self.unsupervised = unsupervised
         self.setname = setname
-        self.repeat = args.shot + args.query
+        if hasattr(args, 'shot') and hasattr(args, 'query'):
+            self.repeat = args.shot + args.query
+        else:
+            self.repeat = 1
         self.augment = augment
 
         self.use_im_cache = (im_size != -1)  # not using cache

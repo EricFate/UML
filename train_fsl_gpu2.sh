@@ -305,12 +305,13 @@
   --backbone_class ConvNet --dataset MiniImageNet --num_classes 16 --way 5 --shot 1 --query 5 --eval_query 15 \
   --balance 1.0 --temperature 1 --temperature2 1 --lr 0.002 --lr_mul 1 --lr_scheduler cosine --step_size 20 \
   --gamma 0.5 --gpu 6 --episodes_per_epoch 500 --eval_interval 2 --start 50
-# taco(SIM) memory bank proto (start = 50)
+# taco(SIM) memory bank proto (5 way 1 task  taco init)
 /home/yangy/anaconda3/envs/ptg/bin/python train_fsl.py --eval_all --unsupervised --batch_size 5 \
+  --init_weights 'checkpoints/tacoMiniImageNet-MiniImageNet,CUB-ProtoNet-ConvNet-05w01s03q-none-SIM/20_0.5_lr0.002mul1_cosine_T11.0T21.0_b0.0_bsz064_batch005_ntask001_nclass016_ep100_evalFalse-Aug_AMDIM/epoch-last.pth' \
   --augment 'AMDIM' --num_tasks 1 --max_epoch 100 --model_class MemoryBankProto \
   --backbone_class ConvNet --dataset MiniImageNet --num_classes 16 --way 5 --shot 1 --query 5 --eval_query 15 \
-  --balance 1.0 --temperature 1 --temperature2 1 --lr 0.002 --lr_mul 1 --lr_scheduler cosine --step_size 20 \
-  --gamma 0.5 --gpu 6 --episodes_per_epoch 500 --eval_interval 2 --start 50
+  --balance 1.0 --temperature 1 --temperature2 1 --lr 0.0001 --lr_mul 1 --lr_scheduler cosine --step_size 20 \
+  --gamma 0.5 --gpu 11 --episodes_per_epoch 500 --eval_interval 2 --K 128
 # taco(SIM) memory bank proto (max_pool)
 /home/yangy/anaconda3/envs/ptg/bin/python train_fsl.py --eval_all --unsupervised --batch_size 64 \
   --augment 'AMDIM' --num_tasks 256 --max_epoch 100 --model_class MemoryBankProto \
