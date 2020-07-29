@@ -17,7 +17,10 @@ class MixUpWrapper(FewShotModelWrapper):
 
         support_idx, query_idx = self.split_instances(x)
         alpha = self.args.alpha
-        c = torch.from_numpy(np.random.beta(alpha, alpha, self.args.num_tasks)).view(-1,1,1,1,1).to(self.args.device)
+        c = np.random.beta(alpha, alpha)
+        # c = torch.from_numpy(np.random.beta(alpha, alpha, self.args.num_tasks)).float().to(
+        # self.args.device).requires_grad_(False)
+        # c_ = c.view(-1, 1, 1, 1, 1, 1)
         # c = 1.
         perm = torch.randperm(support_idx.size(0)).to(self.args.device)
         # mixed_x : (num_task,num_shot,num_way) + shape of image
@@ -57,6 +60,7 @@ class MixUpWrapper(FewShotModelWrapper):
         loss1 = F.cross_entropy(logit1, label)
         loss2 = F.cross_entropy(logit2, label)
         loss = c * loss1 + (1 - c) * loss2
+        # loss = torch.mean(loss)
         # print(loss)
         return logits, loss
 
