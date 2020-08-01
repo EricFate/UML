@@ -138,6 +138,9 @@ def compute_confidence_interval(data):
 def postprocess_args(args):
     save_path1 = '-'.join([args.dataset, args.eval_dataset, args.model_class, args.backbone_class,
                            '{:02d}w{:02d}s{:02}q'.format(args.way, args.shot, args.query), args.additional])
+    if args.finetune:
+        save_path1 += '-finetune_%d' % args.samples_per_class
+
     save_path2 = '_'.join([str('_'.join(args.step_size.split(','))), str(args.gamma),
                            'lr{:.2g}mul{:.2g}'.format(args.lr, args.lr_mul),
                            str(args.lr_scheduler),
@@ -239,7 +242,7 @@ def get_command_line_parser():
     # param for downstream
     parser.add_argument('--finetune', action='store_true', default=False)
     parser.add_argument('--samples_per_class', type=int, default=50)
-    
+
     # optimization parameters
     parser.add_argument('--orig_imsize', type=int,
                         default=-1)  # -1 for no cache, and -2 for no resize, only for MiniImageNet and CUB
