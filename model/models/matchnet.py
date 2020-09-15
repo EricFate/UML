@@ -27,7 +27,7 @@ class MatchNet(FewShotModel):
         num_batch = support.shape[0]
         num_way = support.shape[2]
         num_support = np.prod(support.shape[1:3])
-        num_query = np.prod(query_idx.shape[-2:])
+        num_query = np.prod(query.shape[-2:])
         support = support.view(num_batch, num_support, emb_dim)  # Ntask x NK x d
         label_support_onehot = label_support_onehot.unsqueeze(0).repeat(num_batch, 1, 1)
         query = query.view(num_batch, -1, emb_dim)  # (Nbatch,  Nq*Nw, d)

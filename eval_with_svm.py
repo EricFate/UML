@@ -3,12 +3,15 @@ import numpy as np
 import torch
 from tqdm import tqdm
 from model.models.classifier import Classifier
-from model.dataloader.samplers import CategoriesSampler
+from model.dataloader.samplers import CategoriesSampler, ClassSampler
 from torch.utils.data import DataLoader
 from model.utils import pprint, set_gpu, Averager, compute_confidence_interval
 from sklearn.svm import LinearSVC
 from warnings import filterwarnings
 from model.utils import get_dataset
+from eval_simpleshot import get_class_mean
+import torch.nn.functional as F
+import os.path as osp
 
 filterwarnings('ignore')
 
@@ -18,14 +21,20 @@ if __name__ == '__main__':
     parser.add_argument('--shot', type=int, default=1)
     parser.add_argument('--query', type=int, default=15)
     parser.add_argument('--backbone_class', type=str, default='Res12', choices=['ConvNet', 'Res12'])
-    parser.add_argument('--datasets', type=str,nargs='+', default=['MiniImageNet','CUB'],
+    parser.add_argument('--datasets', type=str, nargs='+', default=['MiniImageNet', 'CUB'],
                         # choices=['MiniImageNet', 'CUB', 'TieredImageNet']
                         )
     parser.add_argument('--gpu', default='0')
     parser.add_argument('--use_memory', action='store_true', default=True)
-    parser.add_argument('--init_weights', type=str, default='./saves/initialization/tieredimagenet/Res12-pre.pth')
+    parser.add_argument('--init_weights', type=str,
+                        default='./FixRes-MiniImageNet-Res12-140LS0.0MX0.0/Bsz32Epoch-3-Cos-lr0.0008decay0.0001/max_acc_sim.pth')
     parser.add_argument('--unsupervised', action='store_true', default=False)
     parser.add_argument('--augment', type=str, default='none')
+    parser.add_argument('--test_size', type=int, default=84)
+    parser.add_argument('-e', '--num_test_episodes', type=int, default=10000)
+    parser.add_argument('-c', '--centralize', action='store_true', default=False)
+    parser.add_argument('-n', '--normalize', action='store_true', default=False)
+
     args = parser.parse_args()
     pprint(vars(args))
 
@@ -60,8 +69,11 @@ if __name__ == '__main__':
     model.load_state_dict(model_dict)
     model.eval()
 
-    # testsets = dict(((n, get_dataset(n, 'test', args.unsupervised, args)) for n in args.eval_dataset.split(',')))
+    trainset = get_dataset('MiniImageNet', 'train', False, args)
 
+    class_mean = get_class_mean('MiniImageNet', args.backbone_class, trainset)
+    # testsets = dict(((n, get_dataset(n, 'test', args.unsupervised, args)) for n in args.eval_dataset.split(',')))
+    ensemble_result = []
     for n in args.datasets:
         print('----------- test on {} --------------'.format(n))
         valset = get_dataset(n, 'val', args.unsupervised, args)
@@ -73,7 +85,7 @@ if __name__ == '__main__':
             val_loader = DataLoader(dataset=valset, batch_sampler=val_sampler, num_workers=8, pin_memory=True)
             # test_set = Dataset('test', args.unsupervised, args)
             test_set = get_dataset(n, 'test', args.unsupervised, args)
-            sampler = CategoriesSampler(test_set.label, 600, args.way, args.shot + args.query)
+            sampler = CategoriesSampler(test_set.label, args.num_test_episodes, args.way, args.shot + args.query)
             loader = DataLoader(dataset=test_set, batch_sampler=sampler, num_workers=8, pin_memory=True)
             shot_label = torch.arange(min(args.way, valset.num_class)).repeat(args.shot).numpy()
             query_label = torch.arange(min(args.way, valset.num_class)).repeat(args.query).numpy()
@@ -88,7 +100,12 @@ if __name__ == '__main__':
                     else:
                         data = batch[0]
 
-                    data_emb = model.encoder(data)
+                    data_emb = model(data, is_emb=True)
+                    if args.centralize:
+                        data_emb = data_emb - class_mean
+                    if args.normalize:
+                        data_emb = F.normalize(data_emb, dim=1, p=2)
+
                     split_index = min(args.way, valset.num_class) * args.shot
                     data_shot, data_query = data_emb[:split_index], data_emb[split_index:]
 
@@ -104,7 +121,7 @@ if __name__ == '__main__':
             best_c = c_list[np.argmax(val_acc_record)]
             print(best_c)
 
-            test_acc_record = np.zeros((600,))
+            test_acc_record = np.zeros((args.num_test_episodes,))
             shot_label = torch.arange(args.way).repeat(args.shot).numpy()
             query_label = torch.arange(args.way).repeat(args.query).numpy()
 
@@ -114,7 +131,13 @@ if __name__ == '__main__':
                         data, _ = [_.cuda() for _ in batch]
                     else:
                         data = batch[0]
-                    data_emb = model.encoder(data)
+                    data_emb = model(data, is_emb=True)
+
+                    if args.centralize:
+                        data_emb = data_emb - class_mean
+                    if args.normalize:
+                        data_emb = F.normalize(data_emb, dim=1, p=2)
+
                     split_index = args.way * args.shot
                     data_shot, data_query = data_emb[:split_index], data_emb[split_index:]
 
@@ -126,4 +149,6 @@ if __name__ == '__main__':
                     # print('batch {}: {:.2f}({:.2f})'.format(i, ave_acc.item() * 100, acc * 100))
 
             m, pm = compute_confidence_interval(test_acc_record)
+            ensemble_result.append('{:.4f} + {:.4f}'.format(m, pm))
             print('{} way {} shot,Test acc={:.4f} + {:.4f}, best_gamma:{}'.format(args.way, args.shot, m, pm, best_c))
+    print('ensemble result: {}'.format(','.join(ensemble_result)))

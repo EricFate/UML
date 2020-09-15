@@ -1,4 +1,5 @@
 import torch.nn as nn
+import torch.nn.functional as F
 
 
 # Basic ConvNet with Pooling layer
@@ -32,7 +33,7 @@ class ConvNet(nn.Module):
 
         for l in self.encoder:
             x = l(x)
-        x = nn.AvgPool2d(5)(x)
+        x = F.adaptive_avg_pool2d(x, 1)
         x = x.view(x.size(0), -1)
         return x
 
@@ -51,7 +52,7 @@ class ConvNet(nn.Module):
         if layer < len(self):
             for i in range(layer, len(self)):
                 x = self.encoder[i](x)
-        x = nn.AvgPool2d(5)(x)
+        x = F.adaptive_avg_pool2d(x, 1)
         x = x.view(x.size(0), -1)
         return x
 

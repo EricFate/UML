@@ -20,8 +20,8 @@ if __name__ == '__main__':
     trainer = FSLTrainer(args)
     trainer.train()
     trainer.evaluate_test()
-    # trainer.final_record()
     print(args.save_path)
+    # trainer.final_record()
 
 
 

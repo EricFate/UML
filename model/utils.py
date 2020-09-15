@@ -135,51 +135,60 @@ def compute_confidence_interval(data):
     return m, pm
 
 
-def postprocess_args(args):
-    save_path1 = '-'.join([args.dataset, args.eval_dataset, args.model_class, args.backbone_class,
-                           '{:02d}w{:02d}s{:02}q'.format(args.way, args.shot, args.query), args.additional])
-    if args.finetune:
-        save_path1 += '-finetune_%d' % args.samples_per_class
+def postprocess_args(args, train=True):
+    if train:
+        save_path1 = '-'.join([args.dataset, args.eval_dataset, args.model_class, args.backbone_class,
+                               '{:02d}w{:02d}s{:02}q'.format(args.way, args.shot, args.query), args.additional])
+        if args.finetune:
+            save_path1 += '-finetune_%d_%d' % (args.finetune_ways, args.samples_per_class)
 
-    save_path2 = '_'.join([str('_'.join(args.step_size.split(','))), str(args.gamma),
-                           'lr{:.2g}mul{:.2g}'.format(args.lr, args.lr_mul),
-                           str(args.lr_scheduler),
-                           'T1{}T2{}'.format(args.temperature, args.temperature2),
-                           'b{}'.format(args.balance),
-                           'bsz{:03d}'.format(max(args.way, args.num_classes) * (args.shot + args.query)),
-                           'batch{:03d}'.format(args.batch_size),
-                           'ntask{:03d}'.format(args.num_tasks),
-                           'nclass{:03d}'.format(args.num_classes),
-                           'ep{}'.format(args.max_epoch),
-                           'eval{}'.format(args.eval)
-                           ])
+        save_path2 = '_'.join([str('_'.join(args.step_size.split(','))), str(args.gamma),
+                               'lars{}'.format(args.lars),
+                               'lr{:.2g}mul{:.2g}'.format(args.lr, args.lr_mul),
+                               str(args.lr_scheduler),
+                               'T1{}T2{}'.format(args.temperature, args.temperature2),
+                               'b{}'.format(args.balance),
+                               'bsz{:03d}'.format(max(args.way, args.num_classes) * (args.shot + args.query)),
+                               'batch{:03d}'.format(args.batch_size),
+                               'ntask{:03d}'.format(args.num_tasks),
+                               'nclass{:03d}'.format(args.num_classes),
+                               'ep{}'.format(args.max_epoch),
+                               'eval{}'.format(args.eval)
+                               ])
 
-    if args.unsupervised:
-        save_path1 = 'taco' + save_path1
+        if args.unsupervised:
+            save_path1 = 'taco' + save_path1
 
-    if args.init_weights is not None:
-        save_path1 += '-Pre_%s' % (args.init_weights.strip().split('/')[-1].split('.')[0])
-    if args.use_euclidean:
-        save_path1 += '-DIS'
+        if args.init_weights is not None:
+            save_path1 += '-Pre_%s' % (args.init_weights.strip().split('/')[-1].split('.')[0])
+        if args.use_euclidean:
+            save_path1 += '-DIS'
+        else:
+            save_path1 += '-SIM'
+
+        if args.additional == 'ProjectionHead':
+            save_path1 += '_hr%.1f' % args.hidden_ratio
+
+        if args.fix_BN:
+            save_path2 += '-FBN'
+        save_path2 += '-Aug_%s' % args.augment
+        if args.additional == 'MixUp':
+            save_path2 = 'al_%.1f_layer_%d_rand_%s_' % (args.alpha, args.layer, args.rand) + save_path2
+
+        if args.model_class == 'DummyProto':
+            save_path2 = 'nd_%d_sp_%d_' % (args.dummy_nodes, args.dummy_samples) + save_path2
+
+        if args.model_class in ['QsimProtoNet', 'QsimMatchNet']:
+            save_path2 = '%s_ng_%d_hm_%s_' % (args.qsim_method, args.num_negative, args.hard_mining) + save_path2
+
+        if args.model_class == 'MemoryBankProto':
+            save_path2 = 'K%d_frac%.4f_m%.4f_p_%s_s_%d_sp_%s_' % (
+                args.K, args.bank_ratio, args.m, args.max_pool, args.start, args.split) + save_path2
     else:
-        save_path1 += '-SIM'
-
-    if args.additional == 'ProjectionHead':
-        save_path1 += '_hr%.1f' % args.hidden_ratio
-
-    if args.fix_BN:
-        save_path2 += '-FBN'
-    save_path2 += '-Aug_%s' % args.augment
-    if args.additional == 'MixUp':
-        save_path2 = 'al_%.1f_layer_%d_rand_%s' % (args.alpha, args.layer, args.rand) + save_path2
-
-    if args.model_class == 'DummyProto':
-        save_path2 = 'nd_%d_sp_%d' % (args.dummy_nodes, args.dummy_samples) + save_path2
-
-    if args.model_class == 'MemoryBankProto':
-        save_path2 = 'K%d_frac%.4f_m%.4f_p_%s_s_%d_sp_%s_' % (
-            args.K, args.bank_ratio, args.m, args.max_pool, args.start, args.split) + save_path2
-
+        save_path1 = 'eval-%s' % ('-'.join([args.eval_dataset, args.model_class, args.backbone_class,
+                                            args.additional, args.ps]))
+        save_path2 = '-'.join(['evalall_{}'.format(args.eval_all),
+                               '{:02d}w{:02d}s{:02}q'.format(args.way, args.shot, args.query), ])
     if not os.path.exists(os.path.join(args.save_dir, save_path1)):
         os.mkdir(os.path.join(args.save_dir, save_path1))
     args.save_path = os.path.join(args.save_dir, save_path1, save_path2)
@@ -192,11 +201,13 @@ def get_command_line_parser():
     parser.add_argument('--max_epoch', type=int, default=200)
     parser.add_argument('--episodes_per_epoch', type=int, default=100)
     parser.add_argument('--num_eval_episodes', type=int, default=600)
+    parser.add_argument('--num_test_episodes', type=int, default=10000)
     parser.add_argument('--model_class', type=str, default='ProtoNet',
                         choices=['MatchNet', 'ProtoNet', 'BILSTM', 'DeepSet', 'GCN', 'FEAT',
                                  'FEATSTAR', 'DummyProto', 'ExtremeProto',
-                                 'MemoryBankProto'])  # None for MatchNet or ProtoNet
+                                 'MemoryBankProto', 'QsimProtoNet', 'QsimMatchNet','MeanNet'])  # None for MatchNet or ProtoNet
     parser.add_argument('--use_euclidean', action='store_true', default=False)
+    parser.add_argument('--mahalanobis', action='store_true', default=False)
     parser.add_argument('--backbone_class', type=str, default='WRN',
                         choices=['ConvNet', 'Res12', 'Res18', 'WRN'])
 
@@ -207,6 +218,7 @@ def get_command_line_parser():
     parser.add_argument('--additional', type=str, default='none')
     # choices=['none', 'TaskContrastive', 'MixUp', 'Mixed', 'ProjectionHead','TaskGate'])
     parser.add_argument('--eval_all', action='store_true', default=False)
+    parser.add_argument('--lars', action='store_true', default=False)
 
     parser.add_argument('--batch_size', type=int, default=32)
     parser.add_argument('--dummy_nodes', type=int, default=5)
@@ -242,13 +254,24 @@ def get_command_line_parser():
     # param for downstream
     parser.add_argument('--finetune', action='store_true', default=False)
     parser.add_argument('--samples_per_class', type=int, default=50)
+    parser.add_argument('--finetune_ways', type=int, default=0)
+
+    # param for qsim
+    parser.add_argument('--num_negative', type=int, default=32)
+    parser.add_argument('--hard_mining', action='store_true', default=False)
+    parser.add_argument('--qsim_method', type=str, default='divide')
+
+    # param for Mahalanobis
+    parser.add_argument('--mat_path', type=str, default='./checkpoints/lmnn/conv.npy')
 
     # optimization parameters
     parser.add_argument('--orig_imsize', type=int,
                         default=-1)  # -1 for no cache, and -2 for no resize, only for MiniImageNet and CUB
+    parser.add_argument('--test_size', type=int,
+                        default=84)  # -1 for no cache, and -2 for no resize, only for MiniImageNet and CUB
     parser.add_argument('--lr', type=float, default=0.1)
     parser.add_argument('--lr_mul', type=float, default=10)
-    parser.add_argument('--lr_scheduler', type=str, default='step', choices=['multistep', 'step', 'cosine'])
+    parser.add_argument('--lr_scheduler', type=str, default='step', choices=['multistep', 'step', 'cosine', 'constant'])
     parser.add_argument('--step_size', type=str, default='20')
     parser.add_argument('--gamma', type=float, default=0.5)
     parser.add_argument('--fix_BN', action='store_true',
@@ -261,11 +284,12 @@ def get_command_line_parser():
     # usually untouched parameters
     parser.add_argument('--mom', type=float, default=0.9)
     parser.add_argument('--weight_decay', type=float, default=0.0005)  # we find this weight decay value works the best
-    parser.add_argument('--num_workers', type=int, default=4)
+    parser.add_argument('--num_workers', type=int, default=8)
     parser.add_argument('--log_interval', type=int, default=50)
     parser.add_argument('--eval_interval', type=int, default=1)
     parser.add_argument('--save_dir', type=str, default='./checkpoints')
     parser.add_argument('--path', type=str, default='')
+    parser.add_argument('--ps', type=str, default='')
     return parser
 
 

@@ -107,4 +107,6 @@
 
 
 
+
+
 /home/amax/anaconda3/envs/ptg/bin/python eval_fsl.py --path './checkpoints/best/ucon_pre.pth' --eval_all --unsupervised --batch_size 128 --augment 'AMDIM' --num_tasks 256  --max_epoch 100 --model_class ProtoNet --use_euclidean --backbone_class ConvNet --dataset MiniImageNet --num_classes 16 --way 5 --eval_way 5 --shot 1 --eval_shot 1 --query 5 --eval_query 15 --balance 0 --temperature 1 --temperature2 1 --lr 0.002 --lr_mul 1 --lr_scheduler cosine --step_size 20 --gamma 0.5  --gpu 1 --episodes_per_epoch 500 --eval_interval 2

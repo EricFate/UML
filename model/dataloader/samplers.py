@@ -2,7 +2,7 @@ import torch
 import numpy as np
 
 
-class CategoriesSampler():
+class CategoriesSampler:
 
     def __init__(self, label, n_batch, n_cls, n_per):
         self.n_batch = n_batch
@@ -22,16 +22,17 @@ class CategoriesSampler():
     def __iter__(self):
         for i_batch in range(self.n_batch):
             batch = []
-            classes = torch.randperm(len(self.m_ind))[:self.n_cls] # take n way from l labels
+            classes = torch.randperm(len(self.m_ind))[:self.n_cls]  # take n way from l labels
             for c in classes:
                 l = self.m_ind[c]
-                pos = torch.randperm(len(l))[:self.n_per] # take k+q examples
+                pos = torch.randperm(len(l))[:self.n_per]  # take k+q examples
                 batch.append(l[pos])
+            # (way, shot + query) -> (shot + query, way)
             batch = torch.stack(batch).t().reshape(-1)
             yield batch
 
 
-class RandomSampler():
+class RandomSampler:
 
     def __init__(self, label, n_batch, n_per):
         self.n_batch = n_batch
@@ -46,10 +47,10 @@ class RandomSampler():
         for i_batch in range(self.n_batch):
             batch = torch.randperm(self.num_label)[:self.n_per]
             yield batch
-            
-            
+
+
 # sample for each class
-class ClassSampler():
+class ClassSampler:
 
     def __init__(self, label, n_per=None):
         self.n_per = n_per
@@ -72,12 +73,12 @@ class ClassSampler():
             else:
                 pos = torch.randperm(len(l))[:self.n_per]
             yield l[pos]
-            
-            
-# for ResNet Fine-Tune, which output the same index of task examples several times
-class InSetSampler():
 
-    def __init__(self, n_batch, n_sbatch, pool): # pool is a tensor
+
+# for ResNet Fine-Tune, which output the same index of task examples several times
+class InSetSampler:
+
+    def __init__(self, n_batch, n_sbatch, pool):  # pool is a tensor
         self.n_batch = n_batch
         self.n_sbatch = n_sbatch
         self.pool = pool
@@ -89,4 +90,28 @@ class InSetSampler():
     def __iter__(self):
         for i_batch in range(self.n_batch):
             batch = self.pool[torch.randperm(self.pool_size)[:self.n_sbatch]]
+            yield batch
+
+
+class NegativeSampler(CategoriesSampler):
+
+    def __init__(self, args, label, n_batch, n_cls, n_per):
+        super().__init__(label, n_batch, n_cls, n_per)
+        self.args = args
+        self.total_bidx = torch.ones(len(label)).bool()
+        self.total_iidx = torch.arange(len(label))
+
+    def __iter__(self):
+        for i_batch in range(self.n_batch):
+            batch = []
+            classes = torch.randperm(len(self.m_ind))[:self.n_cls]  # take n way from l labels
+            for c in classes:
+                l = self.m_ind[c]
+                pos = torch.randperm(len(l))[:self.n_per]  # take k+q examples
+                batch.append(l[pos])
+            batch = torch.stack(batch).t().reshape(-1)
+            tmp_bidx = self.total_bidx.clone()
+            tmp_bidx[batch] = False
+            neg_idx = torch.from_numpy(np.random.choice(self.total_iidx[tmp_bidx], self.args.num_negative))
+            batch = torch.cat([batch, neg_idx])
             yield batch

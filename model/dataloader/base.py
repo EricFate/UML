@@ -83,7 +83,7 @@ class BaseDataset(Dataset):
         else:
             self.repeat = 1
         self.augment = augment
-
+        self.wnids = []
         self.use_im_cache = (im_size != -1)  # not using cache
         if self.use_im_cache:
             if not osp.exists(cache_path):
@@ -105,6 +105,12 @@ class BaseDataset(Dataset):
         self.num_class = len(set(self.label))
 
         image_size = 84
+        self.transform = self.get_transform(args, augment, image_size, setname)
+        if augment == 'moco':
+            self.transform = moco.loader.TwoCropsTransform(self.transform)
+        self.image_shape = self.__getitem__(0)[0][0].shape
+
+    def get_transform(self, args, augment, image_size, setname):
         if augment != 'none' and setname == 'train':
             if self.unsupervised:
                 if augment == 'AMDIM':
@@ -175,6 +181,12 @@ class BaseDataset(Dataset):
                         transforms.RandomHorizontalFlip(),
                         transforms.ToTensor(),
                     ]
+        elif setname != 'train':
+            transforms_list = [
+                transforms.Resize(int((92 / 84) * args.test_size)),
+                transforms.CenterCrop(args.test_size),
+                transforms.ToTensor(),
+            ]
         else:
             transforms_list = [
                 transforms.Resize(92),
@@ -183,34 +195,32 @@ class BaseDataset(Dataset):
             ]
         # Transformation
         if args.backbone_class == 'ConvNet':
-            self.transform = transforms.Compose(
+            transform = transforms.Compose(
                 transforms_list + [
                     transforms.Normalize(np.array([0.485, 0.456, 0.406]),
                                          np.array([0.229, 0.224, 0.225]))
                 ])
         elif args.backbone_class == 'Res12':
-            self.transform = transforms.Compose(
+            transform = transforms.Compose(
                 transforms_list + [
                     transforms.Normalize(np.array([x / 255.0 for x in [120.39586422, 115.59361427, 104.54012653]]),
                                          np.array([x / 255.0 for x in [70.68188272, 68.27635443, 72.54505529]]))
                 ])
         elif args.backbone_class == 'Res18':
-            self.transform = transforms.Compose(
+            transform = transforms.Compose(
                 transforms_list + [
                     transforms.Normalize(mean=[0.485, 0.456, 0.406],
                                          std=[0.229, 0.224, 0.225])
                 ])
         elif args.backbone_class == 'WRN':
-            self.transform = transforms.Compose(
+            transform = transforms.Compose(
                 transforms_list + [
                     transforms.Normalize(mean=[0.485, 0.456, 0.406],
                                          std=[0.229, 0.224, 0.225])
                 ])
         else:
             raise ValueError('Non-supported Network Types. Please Revise Data Pre-Processing Scripts.')
-        if augment == 'moco':
-            self.transform = moco.loader.TwoCropsTransform(self.transform)
-        self.image_shape = self.__getitem__(0)[0][0].shape
+        return transform
 
     @property
     def split_path(self):

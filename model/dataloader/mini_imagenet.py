@@ -73,8 +73,6 @@ class MiniImageNet(BaseDataset):
         label = []
         lb = -1
 
-        self.wnids = []
-
         for l in tqdm(lines, ncols=64):
             name, wnid = l.split(',')
             path = osp.join(IMAGE_PATH1, name)

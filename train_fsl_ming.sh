@@ -12,6 +12,14 @@
   --eval_interval 2
 /home/amax/anaconda3/envs/ming/bin/python train_fsl.py --eval_all --unsupervised --batch_size 64 --augment 'AMDIM' --num_tasks 256 --max_epoch 100 --model_class ProtoNet --use_euclidean --backbone_class ConvNet --dataset MiniImageNet --num_classes 16 --way 5 --eval_way 5 --shot 1 --eval_shot 1 --query 5 --eval_query 15 --balance 0 --temperature 1 --temperature2 1 --lr 0.002 --lr_mul 1 --lr_scheduler cosine --step_size 20 --gamma 0.5 --gpu 1 --episodes_per_epoch 500 --eval_interval 2
 /home/amax/anaconda3/envs/ming/bin/python train_fsl.py --eval_all --unsupervised --batch_size 64 --augment 'AMDIM' --num_tasks 64 --max_epoch 200 --model_class ProtoNet --use_euclidean --backbone_class Res12 --dataset MiniImageNet --num_classes 16 --way 5 --eval_way 5 --shot 1 --eval_shot 1 --query 5 --eval_query 15 --balance 0 --temperature 1 --temperature2 1 --lr 0.1 --lr_mul 1 --lr_scheduler cosine --step_size 20 --gamma 0.5 --gpu 1 --episodes_per_epoch 500 --eval_interval 2
+
+# resnet12 (SIM)
+/home/amax/anaconda3/envs/ming/bin/python train_fsl.py --eval_all --unsupervised --batch_size 32 \
+  --augment 'AMDIM' --num_tasks 256 --max_epoch 200 --model_class ProtoNet --backbone_class Res12 \
+  --dataset MiniImageNet --num_classes 16 --way 5 --eval_way 5 --shot 1 --eval_shot 1 --query 5 --eval_query 15 \
+  --balance 0 --temperature 0.5 --lr 0.1 --lr_mul 1 --lr_scheduler cosine \
+  --gamma 0.1 --gpu 1 --episodes_per_epoch 500 --eval_interval 2
+
 # resnet12
 /home/amax/anaconda3/envs/ming/bin/python train_fsl.py --eval_all --unsupervised --batch_size 32 \
   --augment 'AMDIM' --num_tasks 256 --max_epoch 200 --model_class ProtoNet --use_euclidean --backbone_class Res12 \
@@ -160,11 +168,44 @@
 --augment moco --model_class ProtoNet --backbone_class ConvNet --num_classes 16 --way 5 \
 --eval_way 5 --shot 1 --eval_shot 1 --query 5 --eval_query 15 --gpu 1
 
+# eval moco (resnet12)
+/home/amax/anaconda3/envs/ming/bin/python eval_fsl.py --eval_all --path checkpoint_0199.pth.tar \
+--augment moco --model_class ProtoNet --backbone_class Res12 --num_classes 16 --way 5 \
+--eval_way 5 --shot 1 --eval_shot 1 --query 5 --eval_query 15 --gpu 1
+
+# eval byol pretrain
+/home/amax/anaconda3/envs/ming/bin/python eval_fsl.py --path '/home/amax/hanlu/BYOL/checkpoint.pth' \
+  --eval_all --model_class ProtoNet --backbone_class Res12 --num_test_episodes 10000 \
+  --num_classes 16 --eval_way 5 --eval_shot 1 --eval_query 15 --gpu 0
+
+# eval supervised pretrain(Res12 qsim match cosine negative = 16)
+/home/amax/anaconda3/envs/ming/bin/python eval_fsl.py --path './checkpoints/best/Res12-pre.pth' \
+  --eval_all --model_class QsimMatchNet --backbone_class Res12 --num_test_episodes 10000 \
+  --num_classes 16 --eval_way 5 --eval_shot 1 --eval_query 15 --gpu 0 --num_negative 16
+
+# eval supervised pretrain(Res12 qsim cosine negative = 256)
+/home/amax/anaconda3/envs/ming/bin/python eval_fsl.py --path './checkpoints/best/Res12-pre.pth' \
+  --eval_all --model_class QsimProtoNet --backbone_class Res12 --num_test_episodes 5000 \
+  --num_classes 16 --eval_way 5 --eval_shot 1 --eval_query 15 --gpu 0 --num_negative 512
+  # eval supervised pretrain(Res12 qsim cosine negative = 32, hard mining)
+/home/amax/anaconda3/envs/ming/bin/python eval_fsl.py --path './checkpoints/best/Res12-pre.pth' \
+  --eval_all --model_class QsimProtoNet --backbone_class Res12 --num_test_episodes 10000 \
+  --num_classes 16 --eval_way 5 --eval_shot 1 --eval_query 15 --gpu 0 --num_negative 32 --hard_mining
+
+
 # moco
 python main_moco.py \
   -a ConvNet \
   --lr 0.03 \
   --epochs 800 \
+  --batch-size 256 \
+  --dist-url 'tcp://localhost:10001' --multiprocessing-distributed --world-size 1 --rank 0 \
+  --mlp --moco-t 0.2 --aug-plus --cos
+# moco
+python main_moco.py \
+  -a Res12 \
+  --lr 0.03 \
+  --epochs 200 \
   --batch-size 256 \
   --dist-url 'tcp://localhost:10001' --multiprocessing-distributed --world-size 1 --rank 0 \
   --mlp --moco-t 0.2 --aug-plus --cos

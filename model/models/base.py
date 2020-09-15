@@ -3,6 +3,7 @@ from abc import ABC
 import torch
 import torch.nn as nn
 
+
 class FewShotModel(nn.Module):
     def __init__(self, args):
         super().__init__()
@@ -30,7 +31,7 @@ class FewShotModel(nn.Module):
         self.gep = 0
         self.lep = 0
 
-    def split_instances_normal(self, data, num_tasks, num_shot, num_query, num_way, num_class=None):
+    def split_instances_normal(self, num_tasks, num_shot, num_query, num_way, num_class=None):
         num_class = num_way if (num_class is None or num_class < num_way) else num_class
 
         permuted_ids = torch.zeros(num_tasks, num_shot + num_query, num_way).long()
@@ -53,12 +54,12 @@ class FewShotModel(nn.Module):
         args = self.args
         if self.training:
             if args.unsupervised:
-                return self.split_instances_normal(data, args.num_tasks, args.shot,
+                return self.split_instances_normal(args.num_tasks, args.shot,
                                                    args.query, args.way, args.batch_size)
-            return self.split_instances_normal(data, args.num_tasks, args.shot,
+            return self.split_instances_normal(args.num_tasks, args.shot,
                                                args.query, args.way, args.num_classes)
         else:
-            return self.split_instances_normal(data, 1, args.eval_shot,
+            return self.split_instances_normal(1, args.eval_shot,
                                                args.eval_query, args.eval_way)
 
     def forward(self, x, get_feature=False):
@@ -93,7 +94,6 @@ class FewShotModel(nn.Module):
     def set_epoch(self, ep):
         self.gep = ep
         self.lep = 0
-
 
 
 class FewShotModelWrapper(FewShotModel, ABC):

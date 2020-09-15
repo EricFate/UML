@@ -2,7 +2,7 @@ import abc
 import torch
 import os.path as osp
 from torch.utils.data import DataLoader
-from model.dataloader.samplers import CategoriesSampler
+from model.dataloader.samplers import CategoriesSampler, NegativeSampler
 
 from model.utils import (
     ensure_path,
@@ -81,9 +81,14 @@ class Trainer(object, metaclass=abc.ABCMeta):
 
     def eval_process(self, args, epoch):
         valset = self.valset
-        val_sampler = CategoriesSampler(valset.label,
-                                        args.num_eval_episodes,
-                                        args.eval_way, args.eval_shot + args.eval_query)
+        if args.model_class in ['QsimProtoNet', 'QsimMatchNet']:
+            val_sampler = NegativeSampler(args, valset.label,
+                                          args.num_eval_episodes,
+                                          args.eval_way, args.eval_shot + args.eval_query)
+        else:
+            val_sampler = CategoriesSampler(valset.label,
+                                            args.num_eval_episodes,
+                                            args.eval_way, args.eval_shot + args.eval_query)
         val_loader = DataLoader(dataset=valset,
                                 batch_sampler=val_sampler,
                                 num_workers=args.num_workers,

@@ -18,8 +18,9 @@ from tensorboardX import SummaryWriter
 from collections import deque
 from tqdm import tqdm
 from torch.utils.data import DataLoader
-from model.dataloader.samplers import CategoriesSampler
+from model.dataloader.samplers import CategoriesSampler, NegativeSampler
 from model.utils import init_summary_writer
+from PIL import Image
 
 
 # inter_grad = {}
@@ -181,18 +182,79 @@ class FSLTrainer(Trainer):
         # restore model args
         args = self.args
         # evaluation mode
-        if 'path' in kwargs:
-            path = kwargs['path']
-        else:
-            path = osp.join(self.args.save_path, 'max_acc.pth')
+        models_pths = ['epoch-last.pth'
+            , 'max_acc.pth'
+                       ]
+        with open(osp.join(self.args.save_path,
+                           'test_result%s' % ('_eval_all' if args.eval_all else '')),
+                  'w') as f:
+            for pth in models_pths:
+                ensemble_result = []
+                print('----------- test pth {} --------------'.format(pth))
+                f.write('----------- test pth {} --------------\n'.format(pth))
+                path = osp.join(self.args.save_path, pth)
+                print('model path %s' % path)
+                model_dict = self.model.state_dict()
+                if args.augment == 'moco':
+                    pretrained_dict = torch.load(path)['state_dict']
+                    prefix = 'module.encoder_q'
+                    pretrained_dict = {'encoder' + k[len(prefix):]: v for k, v in pretrained_dict.items() if
+                                       k.startswith(prefix)}
+                else:
+                    pretrained_dict = torch.load(path)['params']
+                    # if args.backbone_class == 'ConvNet':
+                    #     pretrained_dict = {'encoder.' + k: v for k, v in pretrained_dict.items()}
+                    pretrained_dict = {k: v for k, v in pretrained_dict.items() if k in model_dict}
+                # pretrained_dict = torch.load(path)['params']
+                # if args.backbone_class == 'ConvNet':
+                #     pretrained_dict = {'encoder.' + k: v for k, v in pretrained_dict.items()}
+                # pretrained_dict = {k: v for k, v in pretrained_dict.items() if k in model_dict}
+                print(pretrained_dict.keys())
+                model_dict.update(pretrained_dict)
+                self.model.load_state_dict(model_dict)
+                self.model.eval()
+                print('best epoch {}, best val acc={:.4f} + {:.4f}'.format(
+                    self.trlog['max_acc_epoch'],
+                    self.trlog['max_acc'],
+                    self.trlog['max_acc_interval']))
+                with torch.no_grad():
+                    for d, testset in self.testset.items():
+                        print('----------- test on {} --------------'.format(d))
+                        f.write('----------- test on {} --------------\n'.format(d))
+                        if args.eval_all:
+                            for args.eval_way, args.eval_shot in testset.eval_setting:
+                                vl, va, vap = self.test_process(testset)
+                                f.write(
+                                    '{} way {} shot,Test acc={:.4f} + {:.4f}\n'.format(args.eval_way, args.eval_shot,
+                                                                                       va,
+                                                                                       vap))
+                                ensemble_result.append('{:.4f} + {:.4f}'.format(va, vap))
+                        else:
+                            vl, va, vap = self.test_process(testset)
+                            f.write('{} way {} shot,Test acc={:.4f} + {:.4f}\n'.format(args.eval_way, args.eval_shot,
+                                                                                       va,
+                                                                                       vap))
+                            ensemble_result.append('{:.4f} + {:.4f}'.format(va, vap))
+                print('ensemble result: {}'.format(','.join(ensemble_result)))
+                f.write('ensemble result: {}\n'.format(','.join(ensemble_result)))
+
+    def evaluate_model(self, **kwargs):
+        # restore model args
+        args = self.args
+        # evaluation mode
+        path = kwargs['path']
         print('model path %s' % path)
         model_dict = self.model.state_dict()
         if args.augment == 'moco':
             pretrained_dict = torch.load(path)['state_dict']
             prefix = 'module.encoder_q'
-            pretrained_dict = {'encoder'+k[len(prefix):]: v for k, v in pretrained_dict.items() if k.startswith(prefix)}
+            pretrained_dict = {'encoder' + k[len(prefix):]: v for k, v in pretrained_dict.items() if
+                               k.startswith(prefix)}
         else:
-            pretrained_dict = torch.load(path)['params']
+            pretrained_dict = torch.load(path)
+            if 'params' in pretrained_dict:
+                pretrained_dict = pretrained_dict['params']
+
             # if args.backbone_class == 'ConvNet':
             #     pretrained_dict = {'encoder.' + k: v for k, v in pretrained_dict.items()}
             pretrained_dict = {k: v for k, v in pretrained_dict.items() if k in model_dict}
@@ -208,6 +270,7 @@ class FSLTrainer(Trainer):
             self.trlog['max_acc_epoch'],
             self.trlog['max_acc'],
             self.trlog['max_acc_interval']))
+        ensemble_result = []
         with torch.no_grad():
             with open(osp.join(self.args.save_path,
                                'test_result%s' % ('_eval_all' if args.eval_all else '')),
@@ -215,28 +278,25 @@ class FSLTrainer(Trainer):
                 for d, testset in self.testset.items():
                     print('----------- test on {} --------------'.format(d))
                     f.write('----------- test on {} --------------\n'.format(d))
-                    # test_sampler = CategoriesSampler(testset.label,
-                    #                                  10000,  # args.num_eval_episodes,
-                    #                                  args.eval_way, args.eval_shot + args.eval_query)
-                    # test_loader = DataLoader(dataset=testset,
-                    #                          batch_sampler=test_sampler,
-                    #                          num_workers=args.num_workers,
-                    #                          pin_memory=True)
                     if args.eval_all:
                         for args.eval_way, args.eval_shot in testset.eval_setting:
                             vl, va, vap = self.test_process(testset)
                             f.write('{} way {} shot,Test acc={:.4f} + {:.4f}\n'.format(args.eval_way, args.eval_shot,
                                                                                        va,
                                                                                        vap))
+                            ensemble_result.append('{:.4f} + {:.4f}'.format(va, vap))
                     else:
                         vl, va, vap = self.test_process(testset)
                         f.write('{} way {} shot,Test acc={:.4f} + {:.4f}\n'.format(args.eval_way, args.eval_shot,
                                                                                    va,
                                                                                    vap))
+                        ensemble_result.append('{:.4f} + {:.4f}'.format(va, vap))
+                print('ensemble result: {}'.format(','.join(ensemble_result)))
+                f.write('ensemble result: {}\n'.format(','.join(ensemble_result)))
 
     def test_process(self, testset):
         args = self.args
-        record = np.zeros((10000, 2))  # loss and acc
+        record = np.zeros((args.num_test_episodes, 2))  # loss and acc
         label = torch.arange(args.eval_way, dtype=torch.int16).repeat(
             # args.num_tasks *
             args.eval_query)
@@ -244,18 +304,15 @@ class FSLTrainer(Trainer):
         if torch.cuda.is_available():
             label = label.cuda()
         test_sampler = CategoriesSampler(testset.label,
-                                         10000,  # args.num_eval_episodes,
+                                         args.num_test_episodes,  # args.num_eval_episodes,
                                          args.eval_way, args.eval_shot + args.eval_query)
         test_loader = DataLoader(dataset=testset,
                                  batch_sampler=test_sampler,
                                  num_workers=args.num_workers,
                                  pin_memory=True)
         for i, batch in tqdm(enumerate(test_loader, 1), total=len(test_loader)):
-            if torch.cuda.is_available():
-                data, _ = [_.cuda() for _ in batch]
-            else:
-                data = batch[0]
-
+            data = batch[0]
+            data = data.to(self.args.device)
             logits = self.model(data)
             loss = F.cross_entropy(logits, label)
             acc = count_acc(logits, label)

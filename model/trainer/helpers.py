@@ -6,6 +6,7 @@ from torch.utils.data import DataLoader
 from model.dataloader.samplers import CategoriesSampler, RandomSampler, ClassSampler
 from model.models.protonet import ProtoNet
 from model.models.matchnet import MatchNet
+from model.models.meannet import MeanNet
 # from model.models.feat import FEAT
 # from model.models.featstar import FEATSTAR
 # from model.models.deepset import DeepSet
@@ -13,8 +14,10 @@ from model.models.matchnet import MatchNet
 # from model.models.graphnet import GCN
 from model.models.dummy_proto import DummyProto
 from model.models.extreme_proto import ExtremeProto
+from model.models.qsim import QsimProtoNet, QsimMatchNet
 from model.models.task_contrastive_wrapper import TaskContrastiveWrapper
 from model.models import *
+from model.optimizer.lars import LARS
 
 from model.utils import get_dataset
 
@@ -67,10 +70,11 @@ def get_dataloader(args):
         trainset = get_dataset(args.dataset, 'train', True, args, augment=args.augment)
         # args.num_class = unsupervised_trainset.num_class
         unsupervised_loader = DataLoader(dataset=trainset, batch_size=args.batch_size, shuffle=True,
-                                         num_workers=0,
+                                         num_workers=num_workers,
                                          collate_fn=examplar_collate,
                                          pin_memory=True, drop_last=True)
         supervised_trainset = get_dataset(args.dataset, 'train', False, args, augment=args.augment)
+        args.num_classes = min(len(supervised_trainset.wnids), args.num_classes)
         train_sampler = CategoriesSampler(supervised_trainset.label,
                                           num_episodes,
                                           max(args.way, args.num_classes),
@@ -81,16 +85,18 @@ def get_dataloader(args):
                                        batch_sampler=train_sampler,
                                        pin_memory=True)
         dataset = MixedDatasetWrapper(supervised_loader, unsupervised_loader)
-        train_loader = DataLoader(dataset=dataset, batch_size=1, shuffle=True, num_workers=0,
+        train_loader = DataLoader(dataset=dataset, batch_size=1, shuffle=True, num_workers=num_workers,
                                   pin_memory=True)
     else:
         if args.finetune:
-            split = 'train_%d' % args.samples_per_class
+            split = 'train_%d_%d' % (args.finetune_ways, args.samples_per_class)
         else:
             split = 'train'
         trainset = get_dataset(args.dataset, split, args.unsupervised, args, augment=args.augment)
+        args.num_classes = min(len(trainset.wnids), args.num_classes)
         if args.unsupervised:
-            train_loader = DataLoader(dataset=trainset, batch_size=args.batch_size, shuffle=True, num_workers=0,
+            train_loader = DataLoader(dataset=trainset, batch_size=args.batch_size, shuffle=True,
+                                      num_workers=num_workers,
                                       collate_fn=examplar_collate,
                                       pin_memory=True, drop_last=True)
         else:
@@ -172,22 +178,29 @@ def prepare_model(args):
 def prepare_optimizer(model, args):
     top_para = [v for k, v in model.named_parameters() if 'encoder' not in k]
     # as in the literature, we use ADAM for ConvNet and SGD for other backbones
-    if args.backbone_class == 'ConvNet':
-        optimizer = optim.Adam(
-            [{'params': model.encoder.parameters()},
-             {'params': top_para, 'lr': args.lr * args.lr_mul}],
-            lr=args.lr,
-            # weight_decay=args.weight_decay, do not use weight_decay here
-        )
+    if args.lars:
+        optimizer = LARS([{'params': model.encoder.parameters()},
+                          {'params': top_para, 'lr': args.lr * args.lr_mul}],
+                         lr=args.lr,
+                         momentum=args.mom,
+                         weight_decay=args.weight_decay)
     else:
-        optimizer = optim.SGD(
-            [{'params': model.encoder.parameters()},
-             {'params': top_para, 'lr': args.lr * args.lr_mul}],
-            lr=args.lr,
-            momentum=args.mom,
-            nesterov=True,
-            weight_decay=args.weight_decay
-        )
+        if args.backbone_class in ['ConvNet']:
+            optimizer = optim.Adam(
+                [{'params': model.encoder.parameters()},
+                 {'params': top_para, 'lr': args.lr * args.lr_mul}],
+                lr=args.lr,
+                # weight_decay=args.weight_decay, do not use weight_decay here
+            )
+        else:
+            optimizer = optim.SGD(
+                [{'params': model.encoder.parameters()},
+                 {'params': top_para, 'lr': args.lr * args.lr_mul}],
+                lr=args.lr,
+                momentum=args.mom,
+                nesterov=True,
+                weight_decay=args.weight_decay
+            )
 
     if args.lr_scheduler == 'step':
         lr_scheduler = optim.lr_scheduler.StepLR(
@@ -206,6 +219,11 @@ def prepare_optimizer(model, args):
             optimizer,
             args.max_epoch,
             eta_min=0  # a tuning parameter
+        )
+    elif args.lr_scheduler == 'constant':
+        lr_scheduler = optim.lr_scheduler.LambdaLR(
+            optimizer,
+            lambda ep: 1  # a tuning parameter
         )
     else:
         raise ValueError('No Such Scheduler')
